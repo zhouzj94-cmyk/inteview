@@ -1,0 +1,132 @@
+services:
+  mysql:
+    image: 'mysql:latest'
+    environment:
+      - 'MYSQL_DATABASE=mydatabase'
+      - 'MYSQL_PASSWORD=${MYSQL_PASSWORD}'
+      - 'MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}'
+      - 'MYSQL_USER=myuser'
+    ports:
+      - '3306:3306'
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./src/main/resources/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Langfuse AI可观测性平台
+  langfuse:
+    image: docker.1ms.run/langfuse/langfuse:2
+    ports:
+      - '3000:3000'
+    environment:
+      - 'DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@langfuse-db:5432/postgres'
+      - 'NEXTAUTH_SECRET=${NEXTAUTH_SECRET}'
+      - 'NEXTAUTH_URL=http://localhost:3000'
+      - 'SALT=${SALT}'
+      # 首次启动（空数据库）时预置默认组织/项目/用户与API Key，
+      # 使 application.yml 中的 key 可直接使用，免去手动在UI创建
+      - 'LANGFUSE_INIT_ORG_ID=interview-org'
+      - 'LANGFUSE_INIT_ORG_NAME=Interview'
+      - 'LANGFUSE_INIT_PROJECT_ID=interview-project'
+      - 'LANGFUSE_INIT_PROJECT_NAME=智能客服工单系统'
+      - 'LANGFUSE_INIT_PROJECT_PUBLIC_KEY=${AI_LANGFUSE_PUBLIC_KEY}'
+      - 'LANGFUSE_INIT_PROJECT_SECRET_KEY=${AI_LANGFUSE_SECRET_KEY}'
+      - 'LANGFUSE_INIT_USER_EMAIL=admin@interview.local'
+      - 'LANGFUSE_INIT_USER_NAME=Admin'
+      - 'LANGFUSE_INIT_USER_PASSWORD=${LANGFUSE_INIT_USER_PASSWORD}'
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+
+  # Langfuse的PostgreSQL数据库
+  langfuse-db:
+    image: docker.1ms.run/postgres:16
+    environment:
+      - 'POSTGRES_USER=postgres'
+      - 'POSTGRES_PASSWORD=${POSTGRES_PASSWORD}'
+      - 'POSTGRES_DB=postgres'
+    ports:
+      - '5432:5432'
+    volumes:
+      - langfuse_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Milvus向量数据库（长期记忆语义存储，lite独立模式）
+  # 本地暂不启动，先注释；启用时取消以下注释即可
+  # milvus:
+  #   image: docker.1ms.run/milvusdb/milvus:v2.4.17
+  #   command: ['milvus', 'run', 'standalone']
+  #   environment:
+  #     ETCD_USE_EMBED: 'true'
+  #     ETCD_DATA_DIR: /var/lib/milvus/etcd
+  #     COMMON_STORAGETYPE: local
+  #   ports:
+  #     - '19530:19530'
+  #     - '9091:9091'
+  #   volumes:
+  #     - milvus_data:/var/lib/milvus
+  #   healthcheck:
+  #     test: ['CMD', 'curl', '-f', 'http://localhost:9091/healthz']
+  #     interval: 30s
+  #     timeout: 20s
+  #     retries: 5
+
+  # Chroma 本地向量库（轻量、单容器），承载长期记忆的语义向量
+  chroma:
+    image: docker.1ms.run/chromadb/chroma:latest
+    ports:
+      - '8000:8000'
+    environment:
+      IS_PERSISTENT: 'TRUE'
+      ANONYMIZED_TELEMETRY: 'FALSE'
+    volumes:
+      - chroma_data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'python -c "import requests;requests.get(\"http://localhost:8000/api/v1/heartbeat\")" || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  backend:
+    build: .
+    ports:
+      - '8080:8080'
+    environment:
+      - 'SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/mydatabase?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true'
+      - 'SPRING_DATASOURCE_USERNAME=myuser'
+      - 'SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}'
+      - 'SPRING_DOCKER_COMPOSE_ENABLED=false'
+      - 'AI_QWEN_MOCK_ENABLED=false'
+      - 'AI_QWEN_API_KEY=${AI_QWEN_API_KEY}'
+      - 'AI_LANGFUSE_ENABLED=true'
+      - 'AI_LANGFUSE_BASE_URL=http://langfuse:3000'
+      - 'AI_LANGFUSE_PUBLIC_KEY=${AI_LANGFUSE_PUBLIC_KEY}'
+      - 'AI_LANGFUSE_SECRET_KEY=${AI_LANGFUSE_SECRET_KEY}'
+      # 本地暂不启动Milvus：禁用后端Milvus，知识库/长期记忆自动降级为内存
+      - 'AI_MILVUS_ENABLED=false'
+      # - 'AI_MILVUS_HOST=milvus'
+      # - 'AI_MILVUS_PORT=19530'
+      - 'AI_CHROMA_ENABLED=true'
+      - 'AI_CHROMA_BASE_URL=http://chroma:8000'
+      - 'AI_EMBEDDING_MOCK_ENABLED=false'
+    depends_on:
+      mysql:
+        condition: service_healthy
+      chroma:
+        condition: service_healthy
+      # milvus:
+      #   condition: service_healthy
+
+volumes:
+  mysql_data:
+  langfuse_pg_data:
+  chroma_data:
+  # milvus_data:

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zzj.interview.infrastructure.persistence.mapper.AfterSaleMapper">
+
+    <!-- 新建售后记录；created_at/updated_at 交由数据库默认值填充 -->
+    <insert id="insert"
+            parameterType="com.zzj.interview.infrastructure.persistence.entity.AfterSaleEntity">
+        INSERT INTO after_sale (id, after_sale_no, order_no, customer_id, type, reason, status, refund_amount)
+        VALUES (#{id}, #{afterSaleNo}, #{orderNo}, #{customerId}, #{type}, #{reason}, #{status}, #{refundAmount})
+    </insert>
+
+    <!-- 按订单查最近一条售后记录：一个订单原则上只有一条售后，倒序取最新以策安全 -->
+    <select id="selectByOrderNo"
+            resultType="com.zzj.interview.infrastructure.persistence.entity.AfterSaleEntity">
+        SELECT id, after_sale_no, order_no, customer_id, type, reason, status, refund_amount, created_at, updated_at
+        FROM after_sale
+        WHERE order_no = #{orderNo}
+        ORDER BY created_at DESC
+        LIMIT 1
+    </select>
+
+    <update id="updateStatusByOrderNo">
+        UPDATE after_sale
+        SET status = #{status}
+        WHERE order_no = #{orderNo}
+    </update>
+
+</mapper>

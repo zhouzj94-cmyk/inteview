@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zzj.interview.infrastructure.persistence.mapper.TicketMapper">
+
+    <!-- 工单表映射 -->
+    <resultMap id="ticketResultMap" type="com.zzj.interview.domain.model.ticket.Ticket">
+        <id property="id" column="id"/>
+        <result property="customerId" column="customer_id"/>
+        <result property="content" column="content"/>
+        <result property="intent" column="intent"/>
+        <result property="status" column="status"/>
+        <result property="response" column="response"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="insertTicket" parameterType="com.zzj.interview.domain.model.ticket.Ticket">
+        INSERT INTO ticket (id, customer_id, content, intent, status, response, created_at, updated_at)
+        VALUES (#{id}, #{customerId}, #{content}, #{intent}, #{status}, #{response}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="updateTicket" parameterType="com.zzj.interview.domain.model.ticket.Ticket">
+        UPDATE ticket
+        SET intent = #{intent},
+            status = #{status},
+            response = #{response},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <select id="selectById" resultMap="ticketResultMap">
+        SELECT id, customer_id, content, intent, status, response, created_at, updated_at
+        FROM ticket
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectByStatus" resultMap="ticketResultMap">
+        SELECT id, customer_id, content, intent, status, response, created_at, updated_at
+        FROM ticket
+        WHERE status = #{status}
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- AI调用记录表映射 -->
+    <insert id="insertAiRecord" parameterType="com.zzj.interview.domain.model.ticket.TicketAiRecord">
+        INSERT INTO ticket_ai_record (id, ticket_id, model, prompt, response, intent, latency_ms, success, created_at)
+        VALUES (#{id}, #{ticketId}, #{model}, #{prompt}, #{response}, #{intent}, #{latencyMs}, #{success}, #{createdAt})
+    </insert>
+
+</mapper>

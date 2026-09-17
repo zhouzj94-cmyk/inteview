@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zzj.interview.infrastructure.persistence.mapper.OrderMapper">
+
+    <!-- order 是 MySQL 保留字，必须反引号包裹 -->
+    <select id="selectByOrderNo"
+            resultType="com.zzj.interview.infrastructure.persistence.entity.OrderEntity">
+        SELECT id, order_no, customer_id, status, amount, created_at
+        FROM `order`
+        WHERE order_no = #{orderNo}
+    </select>
+
+    <!-- 按客户查全部订单：支撑"我有哪些订单"这类无需订单号的列表查询 -->
+    <select id="selectByCustomerId"
+            resultType="com.zzj.interview.infrastructure.persistence.entity.OrderEntity">
+        SELECT id, order_no, customer_id, status, amount, created_at
+        FROM `order`
+        WHERE customer_id = #{customerId}
+        ORDER BY created_at ASC
+    </select>
+
+    <update id="updateStatusByOrderNo">
+        UPDATE `order`
+        SET status = #{status}
+        WHERE order_no = #{orderNo}
+    </update>
+
+</mapper>

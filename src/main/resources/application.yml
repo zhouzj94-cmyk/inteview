@@ -1,0 +1,79 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: interview
+  # 从项目根目录的 .env 读取本地密钥（.env 已被 gitignore，不会提交）；
+  # 缺失时不报错（optional），此时各密钥回退为空，需自行用环境变量提供。
+  config:
+    import: optional:file:.env[.properties]
+  docker:
+    compose:
+      enabled: false
+  datasource:
+    url: jdbc:mysql://localhost:3306/mydatabase?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: myuser
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jackson:
+    default-property-inclusion: non_null
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.zzj.interview.infrastructure.persistence.mapper
+  configuration:
+    map-underscore-to-camel-case: true
+
+# AI配置
+ai:
+  qwen:
+    base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    # 真实密钥不入库，放在项目根目录被 gitignore 的 .env（AI_QWEN_API_KEY=...）
+    api-key: ${AI_QWEN_API_KEY:}
+    model: qwen-max
+    connect-timeout-ms: 5000
+    read-timeout-ms: 30000
+    max-retries: 3
+    mock-enabled: false
+  langfuse:
+    enabled: true
+    base-url: http://localhost:3000
+    public-key: ${AI_LANGFUSE_PUBLIC_KEY:}
+    secret-key: ${AI_LANGFUSE_SECRET_KEY:}
+  milvus:
+    # 本地暂不启动Milvus：置false后客户端Bean返回null，知识库/长期记忆自动降级为内存实现
+    enabled: false
+    host: localhost
+    port: 19530
+    knowledge-collection: knowledge_base
+    memory-collection: user_memory
+    embedding-dimension: 1024
+  chroma:
+    # 轻量本地向量库，承载长期记忆语义向量；连不上时自动降级为内存画像
+    enabled: true
+    base-url: http://localhost:8000
+    collection: user_memory
+    embedding-dimension: 1024
+    # true=每次交互先调用大模型压缩成要点再向量化存储；false=直接截断原文存储
+    compress: true
+  embedding:
+    # 关闭伪向量：使用DashScope真实embedding（失败时EmbeddingService仍会自动降级为n-gram伪向量）
+    mock-enabled: false
+    model: text-embedding-v3
+    base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+
+logging:
+  level:
+    com.zzj.interview: DEBUG
+
+# API文档配置
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+  info:
+    title: AI智能客服工单系统 API
+    description: 基于DDD+六边形架构的AI工单处理系统
+    version: 1.0.0
